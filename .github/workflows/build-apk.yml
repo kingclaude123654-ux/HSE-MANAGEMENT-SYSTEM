@@ -37,6 +37,16 @@ jobs:
           rm -rf android
           flutter create . --platforms=android
 
+      - name: Inject Camera and Storage Permissions into Fresh Template
+        run: |
+          MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+          PERMISSIONS='<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />'
+          
+          # Use sed to safely inject the hardware permission lines right under the opening <manifest> tag
+          sed -i "s|<manifest[^>]*>|&\n    $PERMISSIONS|" $MANIFEST_PATH
+          
+          echo "Permissions successfully injected into fresh Android Manifest."
+
       - name: Fetch App Dependencies
         run: flutter pub get
 
