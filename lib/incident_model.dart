@@ -3,31 +3,24 @@ class Incident {
   String refNumber;
   String dateReported;
   String severity;
-  String classifications; // JSON or Comma-separated
+  String classifications;
   String project;
   String worksite;
   String department;
   String exactLocation;
-  
-  // Person Involved
   String personName;
   String personCompany;
-  
-  // 5 Why Analysis
   String why1;
   String why2;
   String why3;
   String why4;
   String why5;
-  
-  // Investigation Root Causes (Appendix F)
   String directCause;
   String rootCause;
-  
-  // Corrective Action
   String actionItem;
   String actionAssignee;
-  String actionStatus; // Open, Closed, Overdue
+  String actionStatus;
+  String imagePath; // Added for physical evidence storage
 
   Incident({
     this.id,
@@ -51,6 +44,7 @@ class Incident {
     required this.actionItem,
     required this.actionAssignee,
     required this.actionStatus,
+    required this.imagePath,
   });
 
   Map<String, dynamic> toMap() {
@@ -76,6 +70,7 @@ class Incident {
       'actionItem': actionItem,
       'actionAssignee': actionAssignee,
       'actionStatus': actionStatus,
+      'imagePath': imagePath,
     };
   }
 
@@ -84,7 +79,7 @@ class Incident {
       id: map['id'],
       refNumber: map['refNumber'],
       dateReported: map['dateReported'],
-      severity. : map['severity'],
+      severity: map['severity'],
       classifications: map['classifications'],
       project: map['project'],
       worksite: map['worksite'],
@@ -92,16 +87,17 @@ class Incident {
       exactLocation: map['exactLocation'],
       personName: map['personName'],
       personCompany: map['personCompany'],
-      why1: map['why1'],
-      why2: map['why2'],
-      why3: map['why3'],
-      why4: map['why4'],
-      why5: map['why5'],
-      directCause: map['directCause'],
-      rootCause: map['rootCause'],
-      actionItem: map['actionItem'],
-      actionAssignee: map['actionAssignee'],
-      actionStatus: map['actionStatus'],
+      why1: map['why1'] ?? '',
+      why2: map['why2'] ?? '',
+      why3: map['why3'] ?? '',
+      why4: map['why4'] ?? '',
+      why5: map['why5'] ?? '',
+      directCause: map['directCause'] ?? '',
+      rootCause: map['rootCause'] ?? '',
+      actionItem: map['actionItem'] ?? '',
+      actionAssignee: map['actionAssignee'] ?? '',
+      actionStatus: map['actionStatus'] ?? '',
+      imagePath: map['imagePath'] ?? '',
     );
   }
 }
