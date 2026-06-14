@@ -1,128 +1,183 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'database_helper.dart';
 import 'incident_model.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+class IncidentFormScreen extends StatefulWidget {
+  const IncidentFormScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<IncidentFormScreen> createState() => _IncidentFormScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  int totalCount = 0;
-  int openActions = 0;
-  int closedActions = 0;
-  bool isLoading = true;
+class _IncidentFormScreenState extends State<IncidentFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  
+  final _projectController = TextEditingController();
+  final _worksiteController = TextEditingController();
+  final _deptController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _personNameController = TextEditingController();
+  final _personCompanyController = TextEditingController();
+  final _why1Controller = TextEditingController();
+  final _why2Controller = TextEditingController();
+  final _why3Controller = TextEditingController();
+  final _why4Controller = TextEditingController();
+  final _why5Controller = TextEditingController();
+  final _actionItemController = TextEditingController();
+  final _actionAssigneeController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadMetrics();
+  String _selectedSeverity = 'Minor';
+  String _selectedDirectCause = 'Unsafe Act - Failure to secure';
+  String _selectedRootCause = 'Inadequate Training Management';
+  String _capturedImagePath = '';
+
+  final List<String> _directCauses = [
+    'Unsafe Act - Failure to secure',
+    'Unsafe Act - Operating at improper speed',
+    'Unsafe Condition - Inadequate guards',
+    'Unsafe Condition - Defective tools/machinery'
+  ];
+
+  final List<String> _rootCauses = [
+    'Inadequate Training Management',
+    'Deficient Maintenance Standards',
+    'Inadequate Risk Assessment System',
+    'Failure to Monitor Compliance'
+  ];
+
+  Future<void> _pickImageFromCamera() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
+    if (image != null) {
+      setState(() {
+        _capturedImagePath = image.path;
+      });
+    }
   }
 
-  Future<void> _loadMetrics() async {
-    final data = await DatabaseHelper.instance.fetchAllIncidents();
-    int open = 0;
-    int closed = 0;
-    for (var item in data) {
-      if (item.actionStatus == 'Open') open++;
-      if (item.actionStatus == 'Closed') closed++;
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      final uniqueRef = 'INC-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+      final todayDate = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
+
+      final newIncident = Incident(
+        refNumber: uniqueRef,
+        dateReported: todayDate,
+        severity: _selectedSeverity,
+        classifications: 'Field Investigation Asset Log',
+        project: _projectController.text,
+        worksite: _worksiteController.text,
+        department: _deptController.text,
+        exactLocation: _locationController.text,
+        personName: _personNameController.text,
+        personCompany: _personCompanyController.text,
+        why1: _why1Controller.text,
+        why2: _why2Controller.text,
+        why3: _why3Controller.text,
+        why4: _why4Controller.text,
+        why5: _why5Controller.text,
+        directCause: _selectedDirectCause,
+        rootCause: _selectedRootCause,
+        actionItem: _actionItemController.text,
+        actionAssignee: _actionAssigneeController.text,
+        actionStatus: 'Open',
+        imagePath: _capturedImagePath,
+      );
+
+      await DatabaseHelper.instance.insertIncident(newIncident);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved locally: $uniqueRef')));
+      
+      _formKey.currentState!.reset();
+      setState(() { _capturedImagePath = ''; });
     }
-    setState(() {
-      totalCount = data.length;
-      openActions = open;
-      closedActions = closed;
-      isLoading = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('HSE Incident Pro Dashboard', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadMetrics,
-              child: ListView(
-                padding: const EdgeInsets.all(16.0),
-                children: [
-                  _buildStatRow(),
-                  const SizedBox(height: 24),
-                  const Text('Severity Distribution Analysis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: PieChart(
-                      PieChartData(
-                        sections: [
-                          PieChartSectionData(color: Colors.red, value: 40, title: 'Major', radius: 50, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          PieChartSectionData(color: Colors.orange, value: 35, title: 'Sig', radius: 50, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          PieChartSectionData(color: Colors.yellow.shade700, value: 25, title: 'Minor', radius: 50, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildQuickActionCard(context),
-                ],
-              ),
-            ),
-    );
-  }
-
-  Widget _buildStatRow() {
-    return Row(
-      children: [
-        _buildMetricCard('Total Cases', totalCount.toString(), Colors.blue.shade900),
-        _buildMetricCard('Open CAPA', openActions.toString(), Colors.orange.shade900),
-        _buildMetricCard('Closed', closedActions.toString(), Colors.green.shade900),
-      ],
-    );
-  }
-
-  Widget _buildMetricCard(String title, String count, Color bgColor) {
-    return Expanded(
-      child: Card(
-        color: bgColor,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-          child: Column(
-            children: [
-              Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              Text(count, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionCard(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(title: const Text('Log System Incident')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
           children: [
-            const Text('Technomak Final System Sync', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 4),
-            const Text('Local database engine active and secured offline.', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("All files stored locally in SQLite structure."))),
-              icon: const Icon(Icons.storage),
-              label: const Text('Verify Local Storage Engine'),
-            )
+            _buildSectionHeader('General Info & Location'),
+            TextFormField(controller: _projectController, decoration: const InputDecoration(labelText: 'Project Name'), validator: (v) => v!.isEmpty ? 'Required' : null),
+            TextFormField(controller: _worksiteController, decoration: const InputDecoration(labelText: 'Worksite Location'), validator: (v) => v!.isEmpty ? 'Required' : null),
+            TextFormField(controller: _deptController, decoration: const InputDecoration(labelText: 'Department'), validator: (v) => v!.isEmpty ? 'Required' : null),
+            TextFormField(controller: _locationController, decoration: const InputDecoration(labelText: 'Exact Spot / GPS Description'), validator: (v) => v!.isEmpty ? 'Required' : null),
+            
+            DropdownButtonFormField<String>(
+              value: _selectedSeverity,
+              decoration: const InputDecoration(labelText: 'Severity Level'),
+              items: ['Minor', 'Significant', 'Major'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (val) => setState(() => _selectedSeverity = val!),
+            ),
+
+            _buildSectionHeader('Evidence Capture'),
+            _capturedImagePath.isEmpty
+                ? ElevatedButton.icon(onPressed: _pickImageFromCamera, icon: const Icon(Icons.camera_alt), label: const Text("Launch Site Camera"))
+                : Column(
+                    children: [
+                      Image.file(File(_capturedImagePath), height: 150),
+                      TextButton(onPressed: () => setState(() => _capturedImagePath = ''), child: const Text("Clear Photo"))
+                    ],
+                  ),
+
+            _buildSectionHeader('Personnel Record'),
+            TextFormField(controller: _personNameController, decoration: const InputDecoration(labelText: 'Involved Person Name'), validator: (v) => v!.isEmpty ? 'Required' : null),
+            TextFormField(controller: _personCompanyController, decoration: const InputDecoration(labelText: 'Employer / Contractor'), validator: (v) => v!.isEmpty ? 'Required' : null),
+
+            _buildSectionHeader('Root Cause Analysis (5 Whys)'),
+            TextFormField(controller: _why1Controller, decoration: const InputDecoration(labelText: 'Why 1')),
+            TextFormField(controller: _why2Controller, decoration: const InputDecoration(labelText: 'Why 2')),
+            TextFormField(controller: _why3Controller, decoration: const InputDecoration(labelText: 'Why 3')),
+            TextFormField(controller: _why4Controller, decoration: const InputDecoration(labelText: 'Why 4')),
+            TextFormField(controller: _why5Controller, decoration: const InputDecoration(labelText: 'Why 5')),
+
+            _buildSectionHeader('Cause Classification Matrix'),
+            DropdownButtonFormField<String>(
+              value: _selectedDirectCause,
+              decoration: const InputDecoration(labelText: 'Direct Cause'),
+              items: _directCauses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (val) => setState(() => _selectedDirectCause = val!),
+            ),
+            DropdownButtonFormField<String>(
+              value: _selectedRootCause,
+              decoration: const InputDecoration(labelText: 'Root Cause System'),
+              items: _rootCauses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (val) => setState(() => _selectedRootCause = val!),
+            ),
+
+            _buildSectionHeader('Corrective Action (CAPA)'),
+            TextFormField(controller: _actionItemController, decoration: const InputDecoration(labelText: 'Remedial Action Task'), validator: (v) => v!.isEmpty ? 'Required' : null),
+            TextFormField(controller: _actionAssigneeController, decoration: const InputDecoration(labelText: 'Action Owner'), validator: (v) => v!.isEmpty ? 'Required' : null),
+
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: _submitForm,
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F3A60), padding: const EdgeInsets.symmetric(vertical: 16)),
+              child: const Text('Commit Report to Local Database', style: TextStyle(color: Colors.white, fontSize: 16)),
+            ),
+            const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFE65100))),
+          const Divider(),
+        ],
       ),
     );
   }
