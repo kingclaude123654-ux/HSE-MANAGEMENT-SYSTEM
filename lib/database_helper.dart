@@ -10,14 +10,13 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('incidents.db');
+    _database = await _initDB('incidents_v2.db');
     return _database!;
   }
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-
     return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
@@ -44,7 +43,8 @@ class DatabaseHelper {
       rootCause TEXT,
       actionItem TEXT,
       actionAssignee TEXT,
-      actionStatus TEXT
+      actionStatus TEXT,
+      imagePath TEXT
     )
     ''');
   }
@@ -62,11 +62,6 @@ class DatabaseHelper {
 
   Future<int> updateIncidentAction(int id, String status) async {
     final db = await instance.database;
-    return await db.update(
-      'incidents',
-      {'actionStatus': status},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.update('incidents', {'actionStatus': status}, where: 'id = ?', whereArgs: [id]);
   }
 }
