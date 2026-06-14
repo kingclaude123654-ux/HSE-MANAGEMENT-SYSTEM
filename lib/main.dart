@@ -19,9 +19,9 @@ class IncidentReportProApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1F3A60), // Corporate Navy
+          seedColor: const Color(0xFF1F3A60),
           primary: const Color(0xFF1F3A60),
-          secondary: const Color(0xFFE65100), // Industrial Orange
+          secondary: const Color(0xFFE65100),
         ),
       ),
       home: const MainNavigationContainer(),
