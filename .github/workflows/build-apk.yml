@@ -35,7 +35,7 @@ jobs:
       - name: Repair and Recreate Modern Android Project Wrap
         run: |
           rm -rf android
-          flutter create . --platforms=android
+          flutter create . --platforms=android --project-name=incident_report_pro
 
       - name: Inject Camera and Storage Permissions into Fresh Template
         run: |
