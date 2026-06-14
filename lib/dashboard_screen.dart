@@ -1,183 +1,182 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'database_helper.dart';
 import 'incident_model.dart';
-import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
-class IncidentFormScreen extends StatefulWidget {
-  const IncidentFormScreen({super.key});
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
 
   @override
-  State<IncidentFormScreen> createState() => _IncidentFormScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _IncidentFormScreenState extends State<IncidentFormScreen> {
-  final _formKey = GlobalKey<FormState>();
-  
-  final _projectController = TextEditingController();
-  final _worksiteController = TextEditingController();
-  final _deptController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _personNameController = TextEditingController();
-  final _personCompanyController = TextEditingController();
-  final _why1Controller = TextEditingController();
-  final _why2Controller = TextEditingController();
-  final _why3Controller = TextEditingController();
-  final _why4Controller = TextEditingController();
-  final _why5Controller = TextEditingController();
-  final _actionItemController = TextEditingController();
-  final _actionAssigneeController = TextEditingController();
+class _DashboardScreenState extends State<DashboardScreen> {
+  List<Incident> _incidents = [];
+  int totalCount = 0;
+  int openActions = 0;
+  int closedActions = 0;
+  bool _isLoading = true;
 
-  String _selectedSeverity = 'Minor';
-  String _selectedDirectCause = 'Unsafe Act - Failure to secure';
-  String _selectedRootCause = 'Inadequate Training Management';
-  String _capturedImagePath = '';
-
-  final List<String> _directCauses = [
-    'Unsafe Act - Failure to secure',
-    'Unsafe Act - Operating at improper speed',
-    'Unsafe Condition - Inadequate guards',
-    'Unsafe Condition - Defective tools/machinery'
-  ];
-
-  final List<String> _rootCauses = [
-    'Inadequate Training Management',
-    'Deficient Maintenance Standards',
-    'Inadequate Risk Assessment System',
-    'Failure to Monitor Compliance'
-  ];
-
-  Future<void> _pickImageFromCamera() async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
-    if (image != null) {
-      setState(() {
-        _capturedImagePath = image.path;
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
   }
 
-  void _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      final uniqueRef = 'INC-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-      final todayDate = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
-
-      final newIncident = Incident(
-        refNumber: uniqueRef,
-        dateReported: todayDate,
-        severity: _selectedSeverity,
-        classifications: 'Field Investigation Asset Log',
-        project: _projectController.text,
-        worksite: _worksiteController.text,
-        department: _deptController.text,
-        exactLocation: _locationController.text,
-        personName: _personNameController.text,
-        personCompany: _personCompanyController.text,
-        why1: _why1Controller.text,
-        why2: _why2Controller.text,
-        why3: _why3Controller.text,
-        why4: _why4Controller.text,
-        why5: _why5Controller.text,
-        directCause: _selectedDirectCause,
-        rootCause: _selectedRootCause,
-        actionItem: _actionItemController.text,
-        actionAssignee: _actionAssigneeController.text,
-        actionStatus: 'Open',
-        imagePath: _capturedImagePath,
-      );
-
-      await DatabaseHelper.instance.insertIncident(newIncident);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved locally: $uniqueRef')));
-      
-      _formKey.currentState!.reset();
-      setState(() { _capturedImagePath = ''; });
+  Future<void> _refreshData() async {
+    final res = await DatabaseHelper.instance.fetchAllIncidents();
+    int open = 0;
+    int closed = 0;
+    for (var item in res) {
+      if (item.actionStatus == 'Open') open++;
+      if (item.actionStatus == 'Closed') closed++;
     }
+    setState(() {
+      _incidents = res;
+      totalCount = res.length;
+      openActions = open;
+      closedActions = closed;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _generateAndSharePDF(Incident incident) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.all(24),
+            child: pw.Column(
+              cross: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Header(level: 0, text: "INCIDENT INVESTIGATION REPORT"),
+                pw.SizedBox(height: 10),
+                pw.Text("Incident Ref: ${incident.refNumber}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text("Date Logged: ${incident.dateReported}"),
+                pw.Text("Severity Index: ${incident.severity}"),
+                pw.Divider(),
+                pw.Text("Location Details", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.Text("Project: ${incident.project} | Worksite: ${incident.worksite}"),
+                pw.Text("Exact Spot: ${incident.exactLocation}"),
+                pw.SizedBox(height: 12),
+                pw.Text("Root Cause Engineering (5 Whys Analysis)", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.Text("Why 1 (Immediate): ${incident.why1}"),
+                pw.Text("Why 2: ${incident.why2}"),
+                pw.Text("Why 3: ${incident.why3}"),
+                pw.Text("Why 4: ${incident.why4}"),
+                pw.Text("Why 5 (Root System): ${incident.why5}"),
+                pw.SizedBox(height: 12),
+                pw.Text("Classification Vectors", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                pw.Text("Direct Cause: ${incident.directCause}"),
+                pw.Text("Systemic Root: ${incident.rootCause}"),
+                pw.Divider(),
+                pw.Text("Corrective Action Plan (CAPA)", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.Text("Remedial Instruction: ${incident.actionItem}"),
+                pw.Text("Assigned Action Owner: ${incident.actionAssignee}"),
+                pw.Text("Current Safety Status: ${incident.actionStatus}"),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    await Printing.sharePdf(bytes: await pdf.save(), filename: '${incident.refNumber}.pdf');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Log System Incident')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            _buildSectionHeader('General Info & Location'),
-            TextFormField(controller: _projectController, decoration: const InputDecoration(labelText: 'Project Name'), validator: (v) => v!.isEmpty ? 'Required' : null),
-            TextFormField(controller: _worksiteController, decoration: const InputDecoration(labelText: 'Worksite Location'), validator: (v) => v!.isEmpty ? 'Required' : null),
-            TextFormField(controller: _deptController, decoration: const InputDecoration(labelText: 'Department'), validator: (v) => v!.isEmpty ? 'Required' : null),
-            TextFormField(controller: _locationController, decoration: const InputDecoration(labelText: 'Exact Spot / GPS Description'), validator: (v) => v!.isEmpty ? 'Required' : null),
-            
-            DropdownButtonFormField<String>(
-              value: _selectedSeverity,
-              decoration: const InputDecoration(labelText: 'Severity Level'),
-              items: ['Minor', 'Significant', 'Major'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (val) => setState(() => _selectedSeverity = val!),
-            ),
-
-            _buildSectionHeader('Evidence Capture'),
-            _capturedImagePath.isEmpty
-                ? ElevatedButton.icon(onPressed: _pickImageFromCamera, icon: const Icon(Icons.camera_alt), label: const Text("Launch Site Camera"))
-                : Column(
-                    children: [
-                      Image.file(File(_capturedImagePath), height: 150),
-                      TextButton(onPressed: () => setState(() => _capturedImagePath = ''), child: const Text("Clear Photo"))
-                    ],
-                  ),
-
-            _buildSectionHeader('Personnel Record'),
-            TextFormField(controller: _personNameController, decoration: const InputDecoration(labelText: 'Involved Person Name'), validator: (v) => v!.isEmpty ? 'Required' : null),
-            TextFormField(controller: _personCompanyController, decoration: const InputDecoration(labelText: 'Employer / Contractor'), validator: (v) => v!.isEmpty ? 'Required' : null),
-
-            _buildSectionHeader('Root Cause Analysis (5 Whys)'),
-            TextFormField(controller: _why1Controller, decoration: const InputDecoration(labelText: 'Why 1')),
-            TextFormField(controller: _why2Controller, decoration: const InputDecoration(labelText: 'Why 2')),
-            TextFormField(controller: _why3Controller, decoration: const InputDecoration(labelText: 'Why 3')),
-            TextFormField(controller: _why4Controller, decoration: const InputDecoration(labelText: 'Why 4')),
-            TextFormField(controller: _why5Controller, decoration: const InputDecoration(labelText: 'Why 5')),
-
-            _buildSectionHeader('Cause Classification Matrix'),
-            DropdownButtonFormField<String>(
-              value: _selectedDirectCause,
-              decoration: const InputDecoration(labelText: 'Direct Cause'),
-              items: _directCauses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (val) => setState(() => _selectedDirectCause = val!),
-            ),
-            DropdownButtonFormField<String>(
-              value: _selectedRootCause,
-              decoration: const InputDecoration(labelText: 'Root Cause System'),
-              items: _rootCauses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (val) => setState(() => _selectedRootCause = val!),
-            ),
-
-            _buildSectionHeader('Corrective Action (CAPA)'),
-            TextFormField(controller: _actionItemController, decoration: const InputDecoration(labelText: 'Remedial Action Task'), validator: (v) => v!.isEmpty ? 'Required' : null),
-            TextFormField(controller: _actionAssigneeController, decoration: const InputDecoration(labelText: 'Action Owner'), validator: (v) => v!.isEmpty ? 'Required' : null),
-
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _submitForm,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F3A60), padding: const EdgeInsets.symmetric(vertical: 16)),
-              child: const Text('Commit Report to Local Database', style: TextStyle(color: Colors.white, fontSize: 16)),
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('HSE Dashboard & Reports', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _refreshData,
+              child: ListView(
+                padding: const EdgeInsets.all(16.0),
+                children: [
+                  _buildStatRow(),
+                  const SizedBox(height: 24),
+                  const Text('Severity Metrics Distribution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 160,
+                    child: PieChart(
+                      PieChartData(
+                        sections: [
+                          PieChartSectionData(color: Colors.red.shade700, value: 40, title: 'Major', radius: 45, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                          PieChartSectionData(color: Colors.orange.shade700, value: 35, title: 'Sig', radius: 45, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                          PieChartSectionData(color: Colors.yellow.shade800, value: 25, title: 'Minor', radius: 45, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Recent Incident Records Log', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  _incidents.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: Text("No records caught in local database.")),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _incidents.length,
+                          itemBuilder: (context, index) {
+                            final item = _incidents[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 6),
+                              child: ListTile(
+                                title: Text("${item.refNumber} [${item.severity}]", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                subtitle: Text("Project: ${item.project}\nRoot Cause: ${item.rootCause}", style: const TextStyle(fontSize: 12)),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                                  onPressed: () => _generateAndSharePDF(item),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFE65100))),
-          const Divider(),
-        ],
+  Widget _buildStatRow() {
+    return Row(
+      children: [
+        _buildMetricCard('Total Cases', totalCount.toString(), Colors.blue.shade900),
+        _buildMetricCard('Open CAPA', openActions.toString(), Colors.orange.shade900),
+        _buildMetricCard('Closed', closedActions.toString(), Colors.green.shade900),
+      ],
+    );
+  }
+
+  Widget _buildMetricCard(String title, String count, Color bgColor) {
+    return Expanded(
+      child: Card(
+        color: bgColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+          child: Column(
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 6),
+              Text(count, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
       ),
     );
   }
