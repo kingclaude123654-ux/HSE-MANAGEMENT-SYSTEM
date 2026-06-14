@@ -2,9 +2,13 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
   pull_request:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 jobs:
@@ -12,28 +16,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository code
+        uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java Development Kit
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Install and Cache Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x'
           channel: 'stable'
           cache: true
 
-      - name: Install Dependencies
+      - name: Fetch App Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Compile Release APK Matrix
         run: flutter build apk --release
 
-      - name: Upload APK Artifact
+      - name: Distribute Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: incident-report-pro-apk
