@@ -53,7 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return pw.Padding(
             padding: const pw.EdgeInsets.all(24),
             child: pw.Column(
-              cross: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Header(level: 0, text: "INCIDENT INVESTIGATION REPORT"),
                 pw.SizedBox(height: 10),
